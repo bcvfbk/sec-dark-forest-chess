@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEC Dark Forest Chess</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020504;color:white;font-family:Arial,sans-serif}
+canvas{display:block}
+#loader{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#14291a,#010302 70%)}
+#logo{font-size:70px} #loader h1{color:#a8ffba;text-align:center;margin:10px}
+#bar{width:min(500px,80%);height:16px;background:#172019;border-radius:20px;overflow:hidden}
+#fill{height:100%;width:0;background:linear-gradient(90deg,#28633a,#9affb1);transition:.1s}
+#percent{margin:12px;font-size:20px}
+#enter{display:none;padding:14px 25px;border:1px solid #8aff9e;border-radius:12px;background:#174425;color:white;font-size:17px;font-weight:bold;cursor:pointer}
+#hud{position:fixed;left:15px;top:15px;z-index:10;background:rgba(1,8,4,.82);border:1px solid #375c43;padding:14px 16px;border-radius:14px;backdrop-filter:blur(8px)}
+#hud b{color:#9affb3}
+#restartButton{margin-top:10px;padding:10px 15px;border:1px solid #77d98d;border-radius:10px;background:#183d24;color:white;font-weight:bold;cursor:pointer}
+#restartButton:hover{background:#275d36}
+#eagleBox{display:none;position:fixed;z-index:30;top:15px;left:50%;transform:translateX(-50%);width:min(500px,92%);text-align:center;padding:16px;background:rgba(12,5,3,.95);border:2px solid #9a5334;border-radius:17px}
+#timer{font-size:45px;font-weight:bold;color:#ff755c;margin:6px}
+#treeButton{padding:13px 20px;border:0;border-radius:12px;background:#287440;color:white;font-weight:bold;font-size:16px;cursor:pointer}
+#message{position:fixed;z-index:40;bottom:55px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.86);border:1px solid #43694d;padding:12px 18px;border-radius:12px;opacity:0;transition:.3s;text-align:center;pointer-events:none}
+#tip{position:fixed;z-index:10;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);padding:8px 12px;border-radius:10px;font-size:12px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="loader"><div id="logo">🐉</div><h1>SEC DARK FOREST CHESS</h1><div style="color:#91a497;margin-bottom:20px">🌲 Тёмный лес пробуждается...</div><div id="bar"><div id="fill"></div></div><div id="percent">0%</div><button id="enter">♟ ВОЙТИ В ТЁМНЫЙ ЛЕС</button></div>
+<div id="hud"><b>🐉 SEC DARK FOREST CHESS</b><br><br><span id="turn">Ход: ⚪ Белые</span><br><span id="eagleNext">🦅 Орёл: после начала игры</span><br><button id="restartButton">🔄 НАЧАТЬ ИГРУ ЗАНОВО</button></div>
+<div id="eagleBox"><b style="font-size:21px;color:#ffb078">🦅 ОРЁЛ ЛЕТИТ ЗА ВОИНОМ!</b><div>Позови дерево до окончания времени!</div><div id="timer">10</div><button id="treeButton">🌲 ПОЗВАТЬ ДЕРЕВО</button></div>
+<div id="message"></div>
+<div id="tip">ЛКМ — выбрать • ЛКМ по клетке — ход • мышь — камера</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+
+const loader=document.getElementById("loader"),fill=document.getElementById("fill"),percent=document.getElementById("percent"),enter=document.getElementById("enter"),turnText=document.getElementById("turn"),eagleNext=document.getElementById("eagleNext"),eagleBox=document.getElementById("eagleBox"),timerText=document.getElementById("timer"),treeButton=document.getElementById("treeButton"),restartButton=document.getElementById("restartButton");
+
+let loadingValue=0;
+const loadingInterval=setInterval(()=>{loadingValue+=Math.floor(Math.random()*8)+3;if(loadingValue>=100){loadingValue=100;clearInterval(loadingInterval);percent.textContent="🌲 ЛЕС ГОТОВ";enter.style.display="block"}else percent.textContent=loadingValue+"%";fill.style.width=loadingValue+"%"},100);
+
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x020504); scene.fog=new THREE.FogExp2(0x020504,.022);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,250); camera.position.set(14,17,18);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; document.body.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement); controls.target.set(0,0,0); controls.enableDamping=true; controls.minDistance=9; controls.maxDistance=32; controls.maxPolarAngle=Math.PI/2.03;
+
+scene.add(new THREE.HemisphereLight(0x829ec5,0x061008,1.5));
+const moonLight=new THREE.DirectionalLight(0xc9ddff,2.5); moonLight.position.set(-15,22,-10); moonLight.castShadow=true; scene.add(moonLight);
+const greenLight=new THREE.PointLight(0x42ff84,8,18); greenLight.position.set(0,5,0); scene.add(greenLight);
+const moon=new THREE.Mesh(new THREE.SphereGeometry(2,32,32),new THREE.MeshBasicMaterial({color:0xdce8ff})); moon.position.set(-25,25,-38); scene.add(moon);
+const ground=new THREE.Mesh(new THREE.CircleGeometry(45,64),new THREE.MeshStandardMaterial({color:0x071308,roughness:1})); ground.rotation.x=-Math.PI/2; ground.position.y=-.35; ground.receiveShadow=true; scene.add(ground);
+function mat(color,metal=.15){return new THREE.MeshStandardMaterial({color,roughness:.55,metalness:metal})}
+
+const SIZE=1.4;
+const boardBase=new THREE.Mesh(new THREE.BoxGeometry(12,.45,12),new THREE.MeshStandardMaterial({color:0x160e09,roughness:.7})); boardBase.position.y=-.28; boardBase.receiveShadow=true; scene.add(boardBase);
+const squares=[];
+for(let z=0;z<8;z++)for(let x=0;x<8;x++){const light=(x+z)%2===0;const square=new THREE.Mesh(new THREE.BoxGeometry(SIZE,.18,SIZE),new THREE.MeshStandardMaterial({color:light?0xc1ae7d:0x294333}));square.position.set((x-3.5)*SIZE,0,(z-3.5)*SIZE);square.receiveShadow=true;square.userData={x,z,light};scene.add(square);squares.push(square)}
+
+function createWarrior(type,white){
+ const group=new THREE.Group(),armor=mat(white?0xe8e3d4:0x202630,.45),skin=mat(white?0xd5a079:0x946a4e),royal=mat(white?0xd5ac3d:0x812e35,.65);
+ [-1,1].forEach(side=>{const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.11,.48,8),armor);leg.position.set(side*.12,.32,0);leg.castShadow=true;group.add(leg)});
+ const body=new THREE.Mesh(new THREE.CylinderGeometry(.23,.31,.65,10),armor);body.position.y=.79;body.castShadow=true;group.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.2,14,14),skin);head.position.y=1.3;head.castShadow=true;group.add(head);
+ [-1,1].forEach(side=>{const arm=new THREE.Mesh(new THREE.CylinderGeometry(.06,.075,.5,8),armor);arm.position.set(side*.3,.85,0);arm.rotation.z=side*.25;group.add(arm)});
+ const sword=new THREE.Group(),blade=new THREE.Mesh(new THREE.BoxGeometry(.045,.65,.035),mat(0xdce5e8,.9)),handle=new THREE.Mesh(new THREE.BoxGeometry(.2,.05,.06),royal);blade.position.y=.28;sword.add(blade,handle);sword.position.set(.42,.83,0);sword.rotation.z=-.25;group.add(sword);
+ if(type==="king"){const o=new THREE.Mesh(new THREE.ConeGeometry(.23,.35,6),royal);o.position.y=1.58;group.add(o)}
+ if(type==="queen"){const o=new THREE.Mesh(new THREE.CylinderGeometry(.16,.23,.22,8),royal);o.position.y=1.54;group.add(o)}
+ if(type==="bishop"){const o=new THREE.Mesh(new THREE.ConeGeometry(.2,.48,10),royal);o.position.y=1.63;group.add(o)}
+ if(type==="rook"){const o=new THREE.Mesh(new THREE.BoxGeometry(.38,.22,.38),royal);o.position.y=1.5;group.add(o)}
+ if(type==="knight"){const o=new THREE.Mesh(new THREE.BoxGeometry(.07,.36,.28),royal);o.position.y=1.57;group.add(o)}
+ if(type==="pawn")group.scale.setScalar(.83);
+ group.userData={type,white,alive:true,x:0,z:0}; return group;
+}
+
+const pieces=[],boardMap=Array.from({length:8},()=>Array(8).fill(null)),back=["rook","knight","bishop","queen","king","bishop","knight","rook"];
+function addPiece(type,white,x,z){const piece=createWarrior(type,white);piece.position.set((x-3.5)*SIZE,.15,(z-3.5)*SIZE);piece.rotation.y=white?0:Math.PI;piece.userData.x=x;piece.userData.z=z;scene.add(piece);pieces.push(piece);boardMap[z][x]=piece}
+for(let x=0;x<8;x++){addPiece(back[x],false,x,0);addPiece("pawn",false,x,1);addPiece("pawn",true,x,6);addPiece(back[x],true,x,7)}
+
+function createTree(x,z,scale=1){const tree=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22,.4,3.3,7),mat(0x28170d));trunk.position.y=1.5;trunk.castShadow=true;tree.add(trunk);for(let i=0;i<5;i++){const leaves=new THREE.Mesh(new THREE.SphereGeometry(1,9,7),mat(0x071b0c));leaves.position.set(Math.sin(i*2)*.6,3.2+Math.random()*.8,Math.cos(i*2)*.6);leaves.scale.y=1.3;tree.add(leaves)}tree.position.set(x,0,z);tree.scale.setScalar(scale);scene.add(tree);return tree}
+for(let i=0;i<45;i++){const angle=Math.random()*Math.PI*2,radius=10+Math.random()*23;createTree(Math.cos(angle)*radius,Math.sin(angle)*radius,.7+Math.random()*.8)}
+const livingTrees=[];
+function createLivingTree(x,z){const tree=createTree(x,z,1.25),eyeMaterial=new THREE.MeshBasicMaterial({color:0x70ff79});[-.14,.14].forEach(ex=>{const eye=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),eyeMaterial);eye.position.set(ex,2.05,.36);tree.add(eye)});tree.userData.home=tree.position.clone();livingTrees.push(tree);return tree}
+createLivingTree(-9,0);createLivingTree(9,0);
+
+const eagles=[];
+function createEagle(radius,height,speed){const eagle=new THREE.Group(),body=new THREE.Mesh(new THREE.ConeGeometry(.13,.75,7),mat(0x39291c));body.rotation.z=Math.PI/2;eagle.add(body);const leftWing=new THREE.Mesh(new THREE.BoxGeometry(1,.04,.3),mat(0x211711));leftWing.position.x=-.45;const rightWing=leftWing.clone();rightWing.position.x=.45;eagle.add(leftWing,rightWing);scene.add(eagle);eagles.push({obj:eagle,left:leftWing,right:rightWing,radius,height,speed,angle:Math.random()*6})}
+createEagle(14,10,.4);createEagle(18,13,.3);createEagle(11,8,.5);
+
+const flies=[];
+for(let i=0;i<80;i++){const fly=new THREE.Mesh(new THREE.SphereGeometry(.025,5,5),new THREE.MeshBasicMaterial({color:0x8cff9c}));fly.position.set((Math.random()-.5)*35,.5+Math.random()*5,(Math.random()-.5)*35);scene.add(fly);flies.push({obj:fly,phase:Math.random()*10})}
+
+function message(text){const e=document.getElementById("message");e.textContent=text;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,2600)}
+let whiteTurn=true,selected=null,busy=false;
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+function clearHighlights(){squares.forEach(s=>s.material.emissive.setHex(0))}
+function highlight(x,z){const s=squares.find(s=>s.userData.x===x&&s.userData.z===z);if(s)s.material.emissive.setHex(0x174d26)}
+function pathClear(sx,sz,x,z){const dx=Math.sign(x-sx),dz=Math.sign(z-sz);let cx=sx+dx,cz=sz+dz;while(cx!==x||cz!==z){if(boardMap[cz][cx])return false;cx+=dx;cz+=dz}return true}
+function validMove(piece,x,z){
+ if(x<0||x>7||z<0||z>7)return false;
+ const sx=piece.userData.x,sz=piece.userData.z,dx=x-sx,dz=z-sz;if(dx===0&&dz===0)return false;
+ const target=boardMap[z][x];if(target&&target.userData.white===piece.userData.white)return false;
+ const type=piece.userData.type;
+ if(type==="pawn"){const d=piece.userData.white?-1:1;if(dx===0&&dz===d&&!target)return true;if(Math.abs(dx)===1&&dz===d&&target)return true;return false}
+ if(type==="knight")return(Math.abs(dx)===2&&Math.abs(dz)===1)||(Math.abs(dx)===1&&Math.abs(dz)===2);
+ if(type==="king")return Math.abs(dx)<=1&&Math.abs(dz)<=1;
+ if(type==="rook"){if(dx!==0&&dz!==0)return false;return pathClear(sx,sz,x,z)}
+ if(type==="bishop"){if(Math.abs(dx)!==Math.abs(dz))return false;return pathClear(sx,sz,x,z)}
+ if(type==="queen"){const straight=dx===0||dz===0,diagonal=Math.abs(dx)===Math.abs(dz);if(!straight&&!diagonal)return false;return pathClear(sx,sz,x,z)}
+ return false;
+}
+
+const animations=[];
+function moveAnimation(object,destination,duration,done=null){animations.push({object,from:object.position.clone(),to:destination.clone(),start:performance.now(),duration,done})}
+function movePiece(piece,x,z){const oldX=piece.userData.x,oldZ=piece.userData.z;boardMap[oldZ][oldX]=null;const destination=new THREE.Vector3((x-3.5)*SIZE,.15,(z-3.5)*SIZE);moveAnimation(piece,destination,450,()=>{piece.userData.x=x;piece.userData.z=z;boardMap[z][x]=piece;whiteTurn=!whiteTurn;turnText.textContent=whiteTurn?"Ход: ⚪ Белые":"Ход: ⚫ Чёрные";busy=false});selected=null;clearHighlights()}
+function capture(attacker,victim,x,z){message("⚔️ СРАЖЕНИЕ!");victim.rotation.z=1.3;setTimeout(()=>{const tree=victim.position.x<0?livingTrees[0]:livingTrees[1],treeHome=tree.userData.home.clone(),near=victim.position.clone();near.x+=victim.position.x<0?-1.2:1.2;near.y=0;moveAnimation(tree,near,700,()=>{const lifted=victim.position.clone();lifted.y=2.8;moveAnimation(victim,lifted,500,()=>{victim.userData.alive=false;boardMap[victim.userData.z][victim.userData.x]=null;moveAnimation(victim,treeHome.clone().add(new THREE.Vector3(0,2,0)),800,()=>scene.remove(victim));moveAnimation(tree,treeHome,800,()=>movePiece(attacker,x,z))})})},350)}
+
+renderer.domElement.addEventListener("pointerdown",event=>{
+ if(busy)return;pointer.x=event.clientX/innerWidth*2-1;pointer.y=-(event.clientY/innerHeight)*2+1;raycaster.setFromCamera(pointer,camera);
+ const pieceHits=raycaster.intersectObjects(pieces,true);
+ if(pieceHits.length){let object=pieceHits[0].object;while(object.parent&&!pieces.includes(object))object=object.parent;if(pieces.includes(object)&&object.userData.alive&&object.userData.white===whiteTurn){selected=object;clearHighlights();for(let z=0;z<8;z++)for(let x=0;x<8;x++)if(validMove(selected,x,z))highlight(x,z);return}}
+ const squareHits=raycaster.intersectObjects(squares);if(!squareHits.length||!selected)return;const x=squareHits[0].object.userData.x,z=squareHits[0].object.userData.z;if(!validMove(selected,x,z))return;busy=true;const victim=boardMap[z][x];if(victim)capture(selected,victim,x,z);else movePiece(selected,x,z);
+});
+
+const EAGLE_INTERVAL=120000;
+let eagleVictim=null,eagleCountdown=null,eagleActive=false,eagleSeconds=10,nextEagleTime=0,eagleTimeout=null;
+function scheduleEagle(){if(eagleTimeout)clearTimeout(eagleTimeout);nextEagleTime=Date.now()+EAGLE_INTERVAL;eagleTimeout=setTimeout(startEagleAttack,EAGLE_INTERVAL)}
+function startEagleAttack(){if(eagleActive)return;const alive=pieces.filter(p=>p.userData.alive);if(!alive.length)return;eagleVictim=alive[Math.floor(Math.random()*alive.length)];eagleActive=true;eagleSeconds=10;eagleBox.style.display="block";timerText.textContent=eagleSeconds;timerText.style.color="#ff755c";eagleVictim.scale.multiplyScalar(1.18);message("🦅 ОРЁЛ ВЫБРАЛ СЛУЧАЙНОГО ВОИНА!");eagleCountdown=setInterval(()=>{eagleSeconds--;timerText.textContent=eagleSeconds;if(eagleSeconds<=3)timerText.style.color="#ff2929";if(eagleSeconds<=0){clearInterval(eagleCountdown);eagleSteal()}},1000)}
+treeButton.addEventListener("click",()=>{if(!eagleActive||!eagleVictim)return;clearInterval(eagleCountdown);eagleActive=false;eagleBox.style.display="none";eagleVictim.scale.multiplyScalar(1/1.18);const victim=eagleVictim,tree=victim.position.x<0?livingTrees[0]:livingTrees[1],home=tree.userData.home.clone(),near=victim.position.clone();near.x+=victim.position.x<0?-1.4:1.4;near.y=0;message("🌲 ДРЕВНЕЕ ДЕРЕВО ПРОСНУЛОСЬ!");moveAnimation(tree,near,700,()=>setTimeout(()=>{message("🌲 ДЕРЕВО ПРОГНАЛО ОРЛА!");moveAnimation(tree,home,800)},450));eagleVictim=null;scheduleEagle()});
+function eagleSteal(){if(!eagleVictim||!eagleVictim.userData.alive){eagleActive=false;eagleBox.style.display="none";scheduleEagle();return}eagleActive=false;eagleBox.style.display="none";const victim=eagleVictim;victim.scale.multiplyScalar(1/1.18);const x=victim.userData.x,z=victim.userData.z;boardMap[z][x]=null;victim.userData.alive=false;message("🦅 ОРЁЛ УНЁС ВОИНА!");const destination=victim.position.clone();destination.x+=12;destination.y+=14;destination.z-=8;moveAnimation(victim,destination,1600,()=>scene.remove(victim));eagleVictim=null;scheduleEagle()}
+
+restartButton.addEventListener("click",()=>{if(confirm("♟️ Начать новую игру? Текущая партия будет сброшена."))location.reload()});
+enter.addEventListener("click",()=>{loader.style.transition="opacity .7s";loader.style.opacity=0;setTimeout(()=>loader.style.display="none",700);message("♟️ ДОБРО ПОЖАЛОВАТЬ В ТЁМНЫЙ ЛЕС");scheduleEagle()});
+
+const clock=new THREE.Clock();
+function animate(){
+ requestAnimationFrame(animate);const now=performance.now(),dt=clock.getDelta();
+ for(let i=animations.length-1;i>=0;i--){const a=animations[i];let p=(now-a.start)/a.duration;p=Math.min(1,Math.max(0,p));const smooth=p*p*(3-2*p);a.object.position.lerpVectors(a.from,a.to,smooth);if(p>=1){animations.splice(i,1);if(a.done)a.done()}}
+ eagles.forEach(e=>{e.angle+=dt*e.speed;e.obj.position.set(Math.cos(e.angle)*e.radius,e.height+Math.sin(e.angle*2)*.4,Math.sin(e.angle)*e.radius);e.obj.rotation.y=-e.angle;const flap=Math.sin(now*.008)*.4;e.left.rotation.z=flap;e.right.rotation.z=-flap});
+ livingTrees.forEach((tree,index)=>tree.rotation.z=Math.sin(now*.001+index)*.012);
+ flies.forEach(f=>{const scale=.7+Math.sin(now*.004+f.phase)*.3;f.obj.scale.setScalar(scale)});
+ if(nextEagleTime>0&&!eagleActive){const remaining=Math.max(0,Math.ceil((nextEagleTime-Date.now())/1000)),minutes=Math.floor(remaining/60),seconds=remaining%60;eagleNext.textContent="🦅 Следующий орёл: "+minutes+":"+String(seconds).padStart(2,"0")}
+ controls.update();renderer.render(scene,camera);
+}
+animate();
+addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body>
+</html>
